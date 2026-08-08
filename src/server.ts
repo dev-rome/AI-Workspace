@@ -4,7 +4,9 @@ import {
   getAssistantById,
   createAssistant,
   deleteAssistant,
+  updateAssistant,
 } from "./storage/assistants.js";
+import type { AssistantUpdate } from "./types/assistant.js";
 
 const fastify = Fastify({
   logger: true,
@@ -52,10 +54,39 @@ fastify.post<{ Body: { name: string; instructions: string } }>(
       },
     },
   },
-  async (request, reply) => {
+  (request, reply) => {
     const { name, instructions } = request.body;
     reply.code(201);
     return createAssistant(name, instructions);
+  },
+);
+
+fastify.patch<{
+  Params: { id: string };
+  Body: AssistantUpdate;
+}>(
+  "/assistants/:id",
+  {
+    schema: {
+      body: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          instructions: { type: "string" },
+        },
+      },
+    },
+  },
+  (request, reply) => {
+    const { id } = request.params;
+    const updates = request.body;
+    const assistant = updateAssistant(id, updates);
+    if (!assistant) {
+      return reply.code(404).send({
+        error: "Assistant not found",
+      });
+    }
+    return reply.code(200).send(assistant);
   },
 );
 
