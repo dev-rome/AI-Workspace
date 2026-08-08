@@ -3,6 +3,7 @@ import {
   getAssistants,
   getAssistantById,
   createAssistant,
+  deleteAssistant,
 } from "./storage/assistants.js";
 
 const fastify = Fastify({
@@ -55,6 +56,20 @@ fastify.post<{ Body: { name: string; instructions: string } }>(
     const { name, instructions } = request.body;
     reply.code(201);
     return createAssistant(name, instructions);
+  },
+);
+
+fastify.delete<{ Params: { id: string } }>(
+  "/assistants/:id",
+  (request, reply) => {
+    const { id } = request.params;
+    const deleted = deleteAssistant(id);
+    if (!deleted) {
+      return reply.code(404).send({
+        error: "Assistant not found",
+      });
+    }
+    return reply.code(204).send();
   },
 );
 

@@ -23,3 +23,10 @@ export function createAssistant(name: string, instructions: string) {
   assistants.push(assistant);
   return assistant;
 }
+
+export function deleteAssistant(id: string): boolean {
+  const index = assistants.findIndex((a) => a.id === id);
+  if (index === -1) return false;
+  assistants.splice(index, 1);
+  return true;
+}
