@@ -1,5 +1,9 @@
 import Fastify from "fastify";
-import { getAssistants, createAssistant } from "./storage/assistants.js";
+import {
+  getAssistants,
+  getAssistantById,
+  createAssistant,
+} from "./storage/assistants.js";
 
 const fastify = Fastify({
   logger: true,
@@ -22,6 +26,17 @@ fastify.get("/assistants", () => {
   return getAssistants();
 });
 
+fastify.get<{ Params: { id: string } }>("/assistants/:id", (request, reply) => {
+  const { id } = request.params;
+  const assistant = getAssistantById(id);
+  if (!assistant) {
+    return reply.code(404).send({
+      error: "Assistant not found",
+    });
+  }
+  return assistant;
+});
+
 fastify.post<{ Body: { name: string; instructions: string } }>(
   "/assistants",
   {
@@ -38,7 +53,6 @@ fastify.post<{ Body: { name: string; instructions: string } }>(
   },
   async (request, reply) => {
     const { name, instructions } = request.body;
-
     reply.code(201);
     return createAssistant(name, instructions);
   },
