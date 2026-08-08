@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { request } from "node:http";
+import { createAssistant } from "./storage/assistants.js";
 
 const fastify = Fastify({
   logger: true,
@@ -35,10 +35,8 @@ fastify.post<{ Body: { name: string; instructions: string } }>(
   async (request, reply) => {
     const { name, instructions } = request.body;
 
-    return reply.code(201).send({
-      name,
-      instructions,
-    });
+    reply.code(201);
+    return createAssistant(name, instructions);
   },
 );
 
