@@ -12,6 +12,7 @@ const fastify = Fastify({
   logger: true,
   ajv: {
     customOptions: {
+      removeAdditional: false,
       coerceTypes: false,
     },
   },
@@ -46,9 +47,10 @@ fastify.post<{ Body: { name: string; instructions: string } }>(
     schema: {
       body: {
         type: "object",
+        additionalProperties: false,
         properties: {
-          name: { type: "string" },
-          instructions: { type: "string" },
+          name: { type: "string", minLength: 1 },
+          instructions: { type: "string", minLength: 1 },
         },
         required: ["name", "instructions"],
       },
@@ -70,9 +72,11 @@ fastify.patch<{
     schema: {
       body: {
         type: "object",
+        minProperties: 1,
+        additionalProperties: false,
         properties: {
-          name: { type: "string" },
-          instructions: { type: "string" },
+          name: { type: "string", minLength: 1 },
+          instructions: { type: "string", minLength: 1 },
         },
       },
     },
