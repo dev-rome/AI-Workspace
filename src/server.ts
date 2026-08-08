@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { createAssistant } from "./storage/assistants.js";
+import { getAssistants, createAssistant } from "./storage/assistants.js";
 
 const fastify = Fastify({
   logger: true,
@@ -16,6 +16,10 @@ fastify.get("/", () => {
 
 fastify.get("/health", () => {
   return { status: "ok" };
+});
+
+fastify.get("/assistants", () => {
+  return getAssistants();
 });
 
 fastify.post<{ Body: { name: string; instructions: string } }>(

@@ -3,6 +3,10 @@ import { type Assistant } from "../types/assistant.js";
 
 const assistants: Assistant[] = [];
 
+export function getAssistants(): Assistant[] {
+  return [...assistants];
+}
+
 export function createAssistant(name: string, instructions: string) {
   const id = randomUUID();
 
