@@ -73,21 +73,29 @@ export async function updateAssistant(id: string, updates: AssistantUpdate) {
     const nextVersion = versionResult.rows[0].next_version;
     const name = updates.name ?? assistant.name;
     const instructions = updates.instructions ?? assistant.instructions;
-    const updateResult = await client.query(
+    await client.query(
       `UPDATE assistants
-       SET name = $1, instructions = $2
-       WHERE id = $3
-       RETURNING *`,
+   SET name = $1, instructions = $2
+   WHERE id = $3`,
       [name, instructions, id],
     );
-    await client.query(
+    const versionInsertResult = await client.query(
       `INSERT INTO assistant_versions
    (assistant_id, version_number, name, instructions)
-   VALUES ($1, $2, $3, $4)`,
+   VALUES ($1, $2, $3, $4)
+   RETURNING *`,
       [id, nextVersion, name, instructions],
     );
+    const newVersion = versionInsertResult.rows[0];
+    const currentVersionResult = await client.query(
+      `UPDATE assistants
+   SET current_version_id = $1
+   WHERE id = $2
+   RETURNING *`,
+      [newVersion.id, id],
+    );
     await client.query("COMMIT");
-    return updateResult.rows[0] ?? null;
+    return currentVersionResult.rows[0] ?? null;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -130,21 +138,29 @@ export async function restoreAssistantVersion(
       [assistantId],
     );
     const nextVersion = versionResult.rows[0].next_version;
-    const updateResult = await client.query(
+    await client.query(
       `UPDATE assistants
-       SET name = $1, instructions = $2
-       WHERE id = $3
-       RETURNING *`,
+   SET name = $1, instructions = $2
+   WHERE id = $3`,
       [version.name, version.instructions, assistantId],
     );
-    await client.query(
+    const versionInsertResult = await client.query(
       `INSERT INTO assistant_versions
-       (assistant_id, version_number, name, instructions)
-       VALUES ($1, $2, $3, $4)`,
+   (assistant_id, version_number, name, instructions)
+   VALUES ($1, $2, $3, $4)
+   RETURNING *`,
       [assistantId, nextVersion, version.name, version.instructions],
     );
+    const newVersion = versionInsertResult.rows[0];
+    const currentVersionResult = await client.query(
+      `UPDATE assistants
+   SET current_version_id = $1
+   WHERE id = $2
+   RETURNING *`,
+      [newVersion.id, assistantId],
+    );
     await client.query("COMMIT");
-    return updateResult.rows[0] ?? null;
+    return currentVersionResult.rows[0] ?? null;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
