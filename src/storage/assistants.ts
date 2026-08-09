@@ -1,48 +1,65 @@
+import { pool } from "../db.js";
 import { randomUUID } from "node:crypto";
 import { type Assistant, type AssistantUpdate } from "../types/assistant.js";
 
-const assistants: Assistant[] = [];
-
-export function getAssistants(): Assistant[] {
-  return [...assistants];
+export async function getAssistants() {
+  const result = await pool.query(
+    "SELECT * FROM assistants ORDER BY created_at DESC",
+  );
+  return result.rows;
 }
 
-export function getAssistantById(id: string): Assistant | null {
-  const foundAssistant = assistants.find((a) => a.id === id);
-  if (!foundAssistant) return null;
-  return foundAssistant;
-}
-
-export function createAssistant(name: string, instructions: string) {
-  const id = randomUUID();
-  const assistant: Assistant = {
+export async function getAssistantById(id: string) {
+  const result = await pool.query("SELECT * FROM assistants WHERE id = $1", [
     id,
-    name,
-    instructions,
-  };
-  assistants.push(assistant);
-  return assistant;
+  ]);
+  return result.rows[0] ?? null;
 }
 
-export function updateAssistant(
-  id: string,
-  updates: AssistantUpdate,
-): Assistant | null {
-  const assistant = assistants.find((a) => a.id === id);
-  if (!assistant) return null;
-  if (updates.name !== undefined) {
-    assistant.name = updates.name;
-  }
-  if (updates.instructions !== undefined) {
-    assistant.instructions = updates.instructions;
-  }
-
-  return assistant;
+export async function createAssistant(name: string, instructions: string) {
+  const result = await pool.query(
+    "INSERT INTO assistants(name, instructions) VALUES ($1, $2) RETURNING *",
+    [name, instructions],
+  );
+  return result.rows[0];
 }
 
-export function deleteAssistant(id: string): boolean {
-  const index = assistants.findIndex((a) => a.id === id);
-  if (index === -1) return false;
-  assistants.splice(index, 1);
-  return true;
+export async function updateAssistant(id: string, updates: AssistantUpdate) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "SELECT * FROM assistants WHERE id = $1",
+      [id],
+    );
+    const assistant = result.rows[0];
+    if (!assistant) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const name = updates.name ?? assistant.name;
+    const instructions = updates.instructions ?? assistant.instructions;
+    const updateResult = await client.query(
+      `UPDATE assistants
+       SET name = $1, instructions = $2
+       WHERE id = $3
+       RETURNING *`,
+      [name, instructions, id],
+    );
+    await client.query("COMMIT");
+    return updateResult.rows[0] ?? null;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteAssistant(id: string) {
+  const result = await pool.query(
+    "DELETE FROM assistants WHERE id = $1 RETURNING *",
+    [id],
+  );
+  return result.rows.length > 0;
 }

@@ -17,9 +17,9 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
 
   fastify.get<{ Params: { id: string } }>(
     "/assistants/:id",
-    (request, reply) => {
+    async (request, reply) => {
       const { id } = request.params;
-      const assistant = getAssistantById(id);
+      const assistant = await getAssistantById(id);
       if (!assistant) {
         return reply.code(404).send({
           error: "Assistant not found",
@@ -69,10 +69,10 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    (request, reply) => {
+    async (request, reply) => {
       const { id } = request.params;
       const updates = request.body;
-      const assistant = updateAssistant(id, updates);
+      const assistant = await updateAssistant(id, updates);
       if (!assistant) {
         return reply.code(404).send({
           error: "Assistant not found",
@@ -84,9 +84,9 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
 
   fastify.delete<{ Params: { id: string } }>(
     "/assistants/:id",
-    (request, reply) => {
+    async (request, reply) => {
       const { id } = request.params;
-      const deleted = deleteAssistant(id);
+      const deleted = await deleteAssistant(id);
       if (!deleted) {
         return reply.code(404).send({
           error: "Assistant not found",
