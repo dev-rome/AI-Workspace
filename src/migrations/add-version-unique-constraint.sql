@@ -1,0 +1,3 @@
+ALTER TABLE assistant_versions
+ADD CONSTRAINT assistant_versions_assistant_id_version_number_key
+UNIQUE (assistant_id, version_number);

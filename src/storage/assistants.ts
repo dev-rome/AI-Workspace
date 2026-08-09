@@ -1,6 +1,5 @@
 import { pool } from "../db.js";
-import { randomUUID } from "node:crypto";
-import { type Assistant, type AssistantUpdate } from "../types/assistant.js";
+import { type AssistantUpdate } from "../types/assistant.js";
 
 export async function getAssistants() {
   const result = await pool.query(
@@ -16,12 +15,40 @@ export async function getAssistantById(id: string) {
   return result.rows[0] ?? null;
 }
 
-export async function createAssistant(name: string, instructions: string) {
+export async function getAssistantVersions(assistantId: string) {
   const result = await pool.query(
-    "INSERT INTO assistants(name, instructions) VALUES ($1, $2) RETURNING *",
-    [name, instructions],
+    `SELECT *
+     FROM assistant_versions
+     WHERE assistant_id = $1
+     ORDER BY version_number DESC`,
+    [assistantId],
   );
-  return result.rows[0];
+  return result.rows;
+}
+
+export async function createAssistant(name: string, instructions: string) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "INSERT INTO assistants(name, instructions) VALUES ($1, $2) RETURNING *",
+      [name, instructions],
+    );
+    const assistant = result.rows[0];
+    await client.query(
+      `INSERT INTO assistant_versions
+       (assistant_id, version_number, name, instructions)
+       VALUES ($1, $2, $3, $4)`,
+      [assistant.id, 1, assistant.name, assistant.instructions],
+    );
+    await client.query("COMMIT");
+    return assistant;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateAssistant(id: string, updates: AssistantUpdate) {
@@ -37,6 +64,13 @@ export async function updateAssistant(id: string, updates: AssistantUpdate) {
       await client.query("ROLLBACK");
       return null;
     }
+    const versionResult = await client.query(
+      `SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version
+   FROM assistant_versions
+   WHERE assistant_id = $1`,
+      [id],
+    );
+    const nextVersion = versionResult.rows[0].next_version;
     const name = updates.name ?? assistant.name;
     const instructions = updates.instructions ?? assistant.instructions;
     const updateResult = await client.query(
@@ -45,6 +79,12 @@ export async function updateAssistant(id: string, updates: AssistantUpdate) {
        WHERE id = $3
        RETURNING *`,
       [name, instructions, id],
+    );
+    await client.query(
+      `INSERT INTO assistant_versions
+   (assistant_id, version_number, name, instructions)
+   VALUES ($1, $2, $3, $4)`,
+      [id, nextVersion, name, instructions],
     );
     await client.query("COMMIT");
     return updateResult.rows[0] ?? null;
@@ -62,4 +102,53 @@ export async function deleteAssistant(id: string) {
     [id],
   );
   return result.rows.length > 0;
+}
+
+export async function restoreAssistantVersion(
+  assistantId: string,
+  versionId: string,
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      `SELECT *
+       FROM assistant_versions
+       WHERE id = $1
+         AND assistant_id = $2`,
+      [versionId, assistantId],
+    );
+    const version = result.rows[0];
+    if (!version) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const versionResult = await client.query(
+      `SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version
+       FROM assistant_versions
+       WHERE assistant_id = $1`,
+      [assistantId],
+    );
+    const nextVersion = versionResult.rows[0].next_version;
+    const updateResult = await client.query(
+      `UPDATE assistants
+       SET name = $1, instructions = $2
+       WHERE id = $3
+       RETURNING *`,
+      [version.name, version.instructions, assistantId],
+    );
+    await client.query(
+      `INSERT INTO assistant_versions
+       (assistant_id, version_number, name, instructions)
+       VALUES ($1, $2, $3, $4)`,
+      [assistantId, nextVersion, version.name, version.instructions],
+    );
+    await client.query("COMMIT");
+    return updateResult.rows[0] ?? null;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }

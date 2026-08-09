@@ -3,9 +3,11 @@ import type { FastifyInstance } from "fastify";
 import {
   getAssistants,
   getAssistantById,
+  getAssistantVersions,
   createAssistant,
-  deleteAssistant,
   updateAssistant,
+  deleteAssistant,
+  restoreAssistantVersion,
 } from "../storage/assistants.js";
 
 import type { AssistantUpdate } from "../types/assistant.js";
@@ -26,6 +28,15 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         });
       }
       return assistant;
+    },
+  );
+
+  fastify.get<{ Params: { id: string } }>(
+    "/assistants/:id/versions",
+    async (request, reply) => {
+      const { id } = request.params;
+      const versions = await getAssistantVersions(id);
+      return versions;
     },
   );
 
@@ -50,6 +61,22 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
       return createAssistant(name, instructions);
     },
   );
+
+  fastify.post<{
+    Params: {
+      id: string;
+      versionId: string;
+    };
+  }>("/assistants/:id/versions/:versionId/restore", async (request, reply) => {
+    const { id, versionId } = request.params;
+    const assistant = await restoreAssistantVersion(id, versionId);
+    if (!assistant) {
+      return reply.code(404).send({
+        error: "Assistant or version not found",
+      });
+    }
+    return assistant;
+  });
 
   fastify.patch<{
     Params: { id: string };
