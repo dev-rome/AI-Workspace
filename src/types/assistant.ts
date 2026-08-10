@@ -2,6 +2,17 @@ export type Assistant = {
   id: string;
   name: string;
   instructions: string;
+  current_version_id: string | null;
+  created_at: Date;
+};
+
+export type AssistantVersion = {
+  id: string;
+  assistant_id: string;
+  version_number: number;
+  name: string;
+  instructions: string;
+  created_at: Date;
 };
 
 export type AssistantUpdate = {
