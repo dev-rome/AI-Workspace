@@ -9,6 +9,7 @@ import {
   restoreAssistantVersion,
   compareAssistantVersions,
 } from "../storage/assistants.js";
+import { NotFoundError } from "../errors.js";
 import type { AssistantUpdate } from "../types/assistant.js";
 
 const uuidSchema = {
@@ -53,12 +54,10 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const { id } = request.params;
       const assistant = await getAssistantById(id);
-      if (!assistant) {
-        return reply.code(404).send({ error: "Assistant not found" });
-      }
+      if (!assistant) throw new NotFoundError("Assistant not found");
       return assistant;
     },
   );
@@ -74,12 +73,10 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const { id } = request.params;
       const assistant = await getAssistantById(id);
-      if (!assistant) {
-        return reply.code(404).send({ error: "Assistant not found" });
-      }
+      if (!assistant) throw new NotFoundError("Assistant not found");
       return getAssistantVersions(id);
     },
   );
@@ -101,7 +98,7 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const { assistantId, versionAId, versionBId } = request.params;
       const comparison = await compareAssistantVersions(
         assistantId,
@@ -109,9 +106,9 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         versionBId,
       );
       if (!comparison) {
-        return reply.code(404).send({
-          error: "One or both versions were not found for this assistant",
-        });
+        throw new NotFoundError(
+          "One or both versions were not found for this assistant",
+        );
       }
       return comparison;
     },
@@ -147,15 +144,16 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const { id, versionId } = request.params;
-      const assistant = await restoreAssistantVersion(id, versionId);
-      if (!assistant) {
-        return reply.code(404).send({
-          error: "Assistant or version not found",
-        });
+      const existing = await getAssistantById(id);
+      if (!existing) throw new NotFoundError("Assistant not found");
+
+      const restored = await restoreAssistantVersion(id, versionId);
+      if (!restored) {
+        throw new NotFoundError("Version not found for this assistant");
       }
-      return assistant;
+      return restored;
     },
   );
 
@@ -179,12 +177,10 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    async (request, reply) => {
+    async (request) => {
       const { id } = request.params;
       const assistant = await updateAssistant(id, request.body);
-      if (!assistant) {
-        return reply.code(404).send({ error: "Assistant not found" });
-      }
+      if (!assistant) throw new NotFoundError("Assistant not found");
       return assistant;
     },
   );
@@ -203,9 +199,7 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params;
       const deleted = await deleteAssistant(id);
-      if (!deleted) {
-        return reply.code(404).send({ error: "Assistant not found" });
-      }
+      if (!deleted) throw new NotFoundError("Assistant not found");
       return reply.code(204).send();
     },
   );
