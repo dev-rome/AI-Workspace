@@ -1,24 +1,66 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterAll, vi } from "vitest";
 import { buildApp } from "../app.js";
+import { ASSISTANT_ID, makeAssistant } from "../../test/factories.js";
 
-// Replace the whole storage module with auto-generated mock functions, so
-// these tests exercise routing, validation, and error handling with no
-// database. vi.mock is hoisted above the imports, so by the time buildApp
-// pulls in the routes, they already see the mocked storage layer.
 vi.mock("../storage/assistants.js");
 
 import * as storage from "../storage/assistants.js";
 
 const app = buildApp({ logger: false });
 
-describe("assistant routes", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
+afterAll(async () => {
+  await app.close();
+});
+
+describe("GET /assistants", () => {
+  it("returns the list and applies pagination defaults", async () => {
+    vi.mocked(storage.getAssistants).mockResolvedValue([makeAssistant()]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/assistants",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toHaveLength(1);
+    expect(storage.getAssistants).toHaveBeenCalledWith(50, 0);
   });
 
+  it("passes pagination values as numbers", async () => {
+    vi.mocked(storage.getAssistants).mockResolvedValue([]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/assistants?limit=20&offset=40",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(storage.getAssistants).toHaveBeenCalledWith(20, 40);
+  });
+
+  it("rejects a non-numeric limit", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/assistants?limit=abc",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(storage.getAssistants).not.toHaveBeenCalled();
+  });
+
+  it("rejects a limit above the maximum", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/assistants?limit=500",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(storage.getAssistants).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /assistants/:id", () => {
   it("rejects a malformed id before reaching storage", async () => {
-    // app.inject sends a request through the full app in memory, no port,
-    // no network. It returns the response for you to assert on.
     const response = await app.inject({
       method: "GET",
       url: "/assistants/not-a-uuid",
@@ -29,16 +71,15 @@ describe("assistant routes", () => {
       error: "Invalid request",
       message: "id must be a valid UUID",
     });
-    // Validation runs before the handler, so the DB layer is never called.
     expect(storage.getAssistantById).not.toHaveBeenCalled();
   });
 
-  it("returns a 404 in the standard shape when the assistant is missing", async () => {
+  it("returns 404 when the assistant does not exist", async () => {
     vi.mocked(storage.getAssistantById).mockResolvedValue(null);
 
     const response = await app.inject({
       method: "GET",
-      url: "/assistants/11111111-1111-1111-1111-111111111111",
+      url: `/assistants/${ASSISTANT_ID}`,
     });
 
     expect(response.statusCode).toBe(404);
@@ -48,26 +89,25 @@ describe("assistant routes", () => {
     });
   });
 
-  it("returns the assistant on a hit", async () => {
-    const assistant = {
-      id: "11111111-1111-1111-1111-111111111111",
-      name: "Support Bot",
-      instructions: "Be helpful",
-      current_version_id: "22222222-2222-2222-2222-222222222222",
-      created_at: new Date("2026-01-01T00:00:00Z"),
-    };
-    vi.mocked(storage.getAssistantById).mockResolvedValue(assistant);
+  it("returns the assistant when found", async () => {
+    vi.mocked(storage.getAssistantById).mockResolvedValue(makeAssistant());
 
     const response = await app.inject({
       method: "GET",
-      url: `/assistants/${assistant.id}`,
+      url: `/assistants/${ASSISTANT_ID}`,
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ name: "Support Bot" });
+    expect(response.json()).toMatchObject({
+      name: "Support Bot",
+      instructions: "Be helpful",
+    });
+    expect(storage.getAssistantById).toHaveBeenCalledWith(ASSISTANT_ID);
   });
+});
 
-  it("rejects a create that is missing a required field", async () => {
+describe("POST /assistants", () => {
+  it("rejects a request missing a required field", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/assistants",
@@ -78,26 +118,165 @@ describe("assistant routes", () => {
     expect(storage.createAssistant).not.toHaveBeenCalled();
   });
 
+  it("rejects an empty required field", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/assistants",
+      payload: {
+        name: "",
+        instructions: "Be helpful",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(storage.createAssistant).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported field", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/assistants",
+      payload: {
+        name: "Bot",
+        instructions: "Help",
+        role: "admin",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "Invalid request",
+      message: "Request body contains an unsupported field",
+    });
+    expect(storage.createAssistant).not.toHaveBeenCalled();
+  });
+
   it("creates an assistant and returns 201", async () => {
-    const created = {
-      id: "33333333-3333-3333-3333-333333333333",
-      name: "Sales Bot",
-      instructions: "Sell things",
-      current_version_id: null,
-      created_at: new Date(),
-    };
-    vi.mocked(storage.createAssistant).mockResolvedValue(created);
+    vi.mocked(storage.createAssistant).mockResolvedValue(
+      makeAssistant({
+        name: "Sales Bot",
+        instructions: "Sell things",
+      }),
+    );
 
     const response = await app.inject({
       method: "POST",
       url: "/assistants",
-      payload: { name: "Sales Bot", instructions: "Sell things" },
+      payload: {
+        name: "Sales Bot",
+        instructions: "Sell things",
+      },
     });
 
     expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      name: "Sales Bot",
+      instructions: "Sell things",
+    });
     expect(storage.createAssistant).toHaveBeenCalledWith(
       "Sales Bot",
       "Sell things",
     );
+  });
+});
+
+describe("PATCH /assistants/:id", () => {
+  it("rejects an empty body", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/assistants/${ASSISTANT_ID}`,
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "Invalid request",
+      message: "Request body must contain at least one field",
+    });
+    expect(storage.updateAssistant).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported field", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/assistants/${ASSISTANT_ID}`,
+      payload: {
+        name: "Renamed",
+        role: "admin",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "Invalid request",
+      message: "Request body contains an unsupported field",
+    });
+    expect(storage.updateAssistant).not.toHaveBeenCalled();
+  });
+
+  it("accepts a partial update", async () => {
+    vi.mocked(storage.updateAssistant).mockResolvedValue(
+      makeAssistant({ name: "Renamed" }),
+    );
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/assistants/${ASSISTANT_ID}`,
+      payload: { name: "Renamed" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      name: "Renamed",
+    });
+    expect(storage.updateAssistant).toHaveBeenCalledWith(ASSISTANT_ID, {
+      name: "Renamed",
+    });
+  });
+
+  it("returns 404 when the assistant does not exist", async () => {
+    vi.mocked(storage.updateAssistant).mockResolvedValue(null);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/assistants/${ASSISTANT_ID}`,
+      payload: { name: "Renamed" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: "Not Found",
+      message: "Assistant not found",
+    });
+  });
+});
+
+describe("DELETE /assistants/:id", () => {
+  it("returns 204 with no body on success", async () => {
+    vi.mocked(storage.deleteAssistant).mockResolvedValue(true);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/assistants/${ASSISTANT_ID}`,
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe("");
+    expect(storage.deleteAssistant).toHaveBeenCalledWith(ASSISTANT_ID);
+  });
+
+  it("returns 404 when the assistant does not exist", async () => {
+    vi.mocked(storage.deleteAssistant).mockResolvedValue(false);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/assistants/${ASSISTANT_ID}`,
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: "Not Found",
+      message: "Assistant not found",
+    });
   });
 });
