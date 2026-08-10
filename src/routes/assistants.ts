@@ -24,7 +24,9 @@ const assistantBodyProperties = {
 };
 
 export default async function assistantRoutes(fastify: FastifyInstance) {
-  fastify.get<{ Querystring: { limit?: number; offset?: number } }>(
+  fastify.get<{
+    Querystring: { limit?: number; offset?: number };
+  }>(
     "/assistants",
     {
       schema: {
@@ -57,7 +59,9 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     async (request) => {
       const { id } = request.params;
       const assistant = await getAssistantById(id);
+
       if (!assistant) throw new NotFoundError("Assistant not found");
+
       return assistant;
     },
   );
@@ -76,13 +80,19 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     async (request) => {
       const { id } = request.params;
       const assistant = await getAssistantById(id);
+
       if (!assistant) throw new NotFoundError("Assistant not found");
+
       return getAssistantVersions(id);
     },
   );
 
   fastify.get<{
-    Params: { assistantId: string; versionAId: string; versionBId: string };
+    Params: {
+      assistantId: string;
+      versionAId: string;
+      versionBId: string;
+    };
   }>(
     "/assistants/:assistantId/versions/:versionAId/compare/:versionBId",
     {
@@ -105,16 +115,20 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         versionAId,
         versionBId,
       );
+
       if (!comparison) {
         throw new NotFoundError(
           "One or both versions were not found for this assistant",
         );
       }
+
       return comparison;
     },
   );
 
-  fastify.post<{ Body: { name: string; instructions: string } }>(
+  fastify.post<{
+    Body: { name: string; instructions: string };
+  }>(
     "/assistants",
     {
       schema: {
@@ -147,12 +161,15 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     async (request) => {
       const { id, versionId } = request.params;
       const existing = await getAssistantById(id);
+
       if (!existing) throw new NotFoundError("Assistant not found");
 
       const restored = await restoreAssistantVersion(id, versionId);
+
       if (!restored) {
         throw new NotFoundError("Version not found for this assistant");
       }
+
       return restored;
     },
   );
@@ -180,7 +197,9 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     async (request) => {
       const { id } = request.params;
       const assistant = await updateAssistant(id, request.body);
+
       if (!assistant) throw new NotFoundError("Assistant not found");
+
       return assistant;
     },
   );
@@ -199,7 +218,9 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params;
       const deleted = await deleteAssistant(id);
+
       if (!deleted) throw new NotFoundError("Assistant not found");
+
       return reply.code(204).send();
     },
   );

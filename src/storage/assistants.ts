@@ -11,6 +11,7 @@ async function withTransaction<T>(
   fn: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
     const result = await fn(client);
@@ -37,13 +38,15 @@ async function applyNewVersion(
     [assistantId],
   );
   const { next_version: nextVersion } = firstRow(versionResult.rows);
+
   const insertResult = await client.query<AssistantVersion>(
     `INSERT INTO assistant_versions
-       (assistant_id, version_number, name, instructions)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
+        (assistant_id, version_number, name, instructions)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *`,
     [assistantId, nextVersion, name, instructions],
   );
+
   const newVersion = firstRow(insertResult.rows);
   const assistantResult = await client.query<Assistant>(
     `UPDATE assistants
@@ -52,6 +55,7 @@ async function applyNewVersion(
       RETURNING *`,
     [name, instructions, newVersion.id, assistantId],
   );
+
   return firstRow(assistantResult.rows);
 }
 
@@ -63,6 +67,7 @@ export async function getAssistants(limit = 50, offset = 0) {
       LIMIT $1 OFFSET $2`,
     [limit, offset],
   );
+
   return result.rows;
 }
 
@@ -71,6 +76,7 @@ export async function getAssistantById(id: string) {
     "SELECT * FROM assistants WHERE id = $1",
     [id],
   );
+
   return maybeRow(result.rows);
 }
 
@@ -82,6 +88,7 @@ export async function getAssistantVersions(assistantId: string) {
       ORDER BY version_number DESC`,
     [assistantId],
   );
+
   return result.rows;
 }
 
@@ -92,6 +99,7 @@ export async function createAssistant(name: string, instructions: string) {
       [name, instructions],
     );
     const assistant = firstRow(result.rows);
+
     return applyNewVersion(client, assistant.id, name, instructions);
   });
 }
@@ -103,9 +111,12 @@ export async function updateAssistant(id: string, updates: AssistantUpdate) {
       [id],
     );
     const assistant = maybeRow(result.rows);
+
     if (!assistant) return null;
+
     const name = updates.name ?? assistant.name;
     const instructions = updates.instructions ?? assistant.instructions;
+
     return applyNewVersion(client, id, name, instructions);
   });
 }
@@ -115,6 +126,7 @@ export async function deleteAssistant(id: string) {
     "DELETE FROM assistants WHERE id = $1 RETURNING id",
     [id],
   );
+
   return result.rows.length > 0;
 }
 
@@ -127,7 +139,9 @@ export async function restoreAssistantVersion(
       "SELECT * FROM assistants WHERE id = $1 FOR UPDATE",
       [assistantId],
     );
+
     if (!maybeRow(assistantResult.rows)) return null;
+
     const versionResult = await client.query<AssistantVersion>(
       `SELECT *
          FROM assistant_versions
@@ -135,8 +149,11 @@ export async function restoreAssistantVersion(
           AND assistant_id = $2`,
       [versionId, assistantId],
     );
+
     const version = maybeRow(versionResult.rows);
+
     if (!version) return null;
+
     return applyNewVersion(
       client,
       assistantId,
@@ -158,10 +175,13 @@ export async function compareAssistantVersions(
         AND assistant_id = $3`,
     [versionAId, versionBId, assistantId],
   );
+
   const versions = result.rows;
   const versionA = versions.find((version) => version.id === versionAId);
   const versionB = versions.find((version) => version.id === versionBId);
+
   if (!versionA || !versionB) return null;
+
   const changes = {
     name: {
       changed: versionA.name !== versionB.name,
@@ -174,5 +194,6 @@ export async function compareAssistantVersions(
       to: versionB.instructions,
     },
   };
+
   return { versionA, versionB, changes };
 }

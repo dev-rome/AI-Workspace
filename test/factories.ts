@@ -1,9 +1,3 @@
-// Shared test data builders and fixed IDs.
-//
-// Factories return a fresh object on every call so no test can mutate data
-// another test depends on. Only DATA lives here: assertions and control flow
-// stay in the test files where a failure is readable at the point it happens.
-
 import {
   type Assistant,
   type AssistantVersion,
