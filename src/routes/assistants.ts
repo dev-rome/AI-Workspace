@@ -1,5 +1,4 @@
 import type { FastifyInstance } from "fastify";
-
 import {
   getAssistants,
   getAssistantById,
@@ -8,24 +7,57 @@ import {
   updateAssistant,
   deleteAssistant,
   restoreAssistantVersion,
+  compareAssistantVersions,
 } from "../storage/assistants.js";
-
 import type { AssistantUpdate } from "../types/assistant.js";
 
+const uuidSchema = {
+  type: "string",
+  pattern:
+    "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+};
+
+const assistantBodyProperties = {
+  name: { type: "string", minLength: 1 },
+  instructions: { type: "string", minLength: 1 },
+};
+
 export default async function assistantRoutes(fastify: FastifyInstance) {
-  fastify.get("/assistants", () => {
-    return getAssistants();
-  });
+  fastify.get<{ Querystring: { limit?: number; offset?: number } }>(
+    "/assistants",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            offset: { type: "integer", minimum: 0, default: 0 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const { limit, offset } = request.query;
+      return getAssistants(limit, offset);
+    },
+  );
 
   fastify.get<{ Params: { id: string } }>(
     "/assistants/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          properties: { id: uuidSchema },
+          required: ["id"],
+        },
+      },
+    },
     async (request, reply) => {
       const { id } = request.params;
       const assistant = await getAssistantById(id);
       if (!assistant) {
-        return reply.code(404).send({
-          error: "Assistant not found",
-        });
+        return reply.code(404).send({ error: "Assistant not found" });
       }
       return assistant;
     },
@@ -33,10 +65,55 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
 
   fastify.get<{ Params: { id: string } }>(
     "/assistants/:id/versions",
+    {
+      schema: {
+        params: {
+          type: "object",
+          properties: { id: uuidSchema },
+          required: ["id"],
+        },
+      },
+    },
     async (request, reply) => {
       const { id } = request.params;
-      const versions = await getAssistantVersions(id);
-      return versions;
+      const assistant = await getAssistantById(id);
+      if (!assistant) {
+        return reply.code(404).send({ error: "Assistant not found" });
+      }
+      return getAssistantVersions(id);
+    },
+  );
+
+  fastify.get<{
+    Params: { assistantId: string; versionAId: string; versionBId: string };
+  }>(
+    "/assistants/:assistantId/versions/:versionAId/compare/:versionBId",
+    {
+      schema: {
+        params: {
+          type: "object",
+          properties: {
+            assistantId: uuidSchema,
+            versionAId: uuidSchema,
+            versionBId: uuidSchema,
+          },
+          required: ["assistantId", "versionAId", "versionBId"],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { assistantId, versionAId, versionBId } = request.params;
+      const comparison = await compareAssistantVersions(
+        assistantId,
+        versionAId,
+        versionBId,
+      );
+      if (!comparison) {
+        return reply.code(404).send({
+          error: "One or both versions were not found for this assistant",
+        });
+      }
+      return comparison;
     },
   );
 
@@ -47,36 +124,40 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
         body: {
           type: "object",
           additionalProperties: false,
-          properties: {
-            name: { type: "string", minLength: 1 },
-            instructions: { type: "string", minLength: 1 },
-          },
+          properties: assistantBodyProperties,
           required: ["name", "instructions"],
         },
       },
     },
-    (request, reply) => {
+    async (request, reply) => {
       const { name, instructions } = request.body;
       reply.code(201);
       return createAssistant(name, instructions);
     },
   );
 
-  fastify.post<{
-    Params: {
-      id: string;
-      versionId: string;
-    };
-  }>("/assistants/:id/versions/:versionId/restore", async (request, reply) => {
-    const { id, versionId } = request.params;
-    const assistant = await restoreAssistantVersion(id, versionId);
-    if (!assistant) {
-      return reply.code(404).send({
-        error: "Assistant or version not found",
-      });
-    }
-    return assistant;
-  });
+  fastify.post<{ Params: { id: string; versionId: string } }>(
+    "/assistants/:id/versions/:versionId/restore",
+    {
+      schema: {
+        params: {
+          type: "object",
+          properties: { id: uuidSchema, versionId: uuidSchema },
+          required: ["id", "versionId"],
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id, versionId } = request.params;
+      const assistant = await restoreAssistantVersion(id, versionId);
+      if (!assistant) {
+        return reply.code(404).send({
+          error: "Assistant or version not found",
+        });
+      }
+      return assistant;
+    },
+  );
 
   fastify.patch<{
     Params: { id: string };
@@ -85,39 +166,45 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants/:id",
     {
       schema: {
+        params: {
+          type: "object",
+          properties: { id: uuidSchema },
+          required: ["id"],
+        },
         body: {
           type: "object",
           minProperties: 1,
           additionalProperties: false,
-          properties: {
-            name: { type: "string", minLength: 1 },
-            instructions: { type: "string", minLength: 1 },
-          },
+          properties: assistantBodyProperties,
         },
       },
     },
     async (request, reply) => {
       const { id } = request.params;
-      const updates = request.body;
-      const assistant = await updateAssistant(id, updates);
+      const assistant = await updateAssistant(id, request.body);
       if (!assistant) {
-        return reply.code(404).send({
-          error: "Assistant not found",
-        });
+        return reply.code(404).send({ error: "Assistant not found" });
       }
-      return reply.code(200).send(assistant);
+      return assistant;
     },
   );
 
   fastify.delete<{ Params: { id: string } }>(
     "/assistants/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          properties: { id: uuidSchema },
+          required: ["id"],
+        },
+      },
+    },
     async (request, reply) => {
       const { id } = request.params;
       const deleted = await deleteAssistant(id);
       if (!deleted) {
-        return reply.code(404).send({
-          error: "Assistant not found",
-        });
+        return reply.code(404).send({ error: "Assistant not found" });
       }
       return reply.code(204).send();
     },
