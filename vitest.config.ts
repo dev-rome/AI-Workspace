@@ -9,6 +9,9 @@ process.loadEnvFile(".env.test");
 export default defineConfig({
   test: {
     maxWorkers: 1,
+    sequence: {
+      groupOrder: 0,
+    },
     // A "project" is a named group of test files with its own settings.
     // Two groups here because they have opposite database needs:
     //   unit        -> database faked, fast, no network
