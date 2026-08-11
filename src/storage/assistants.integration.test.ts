@@ -401,3 +401,28 @@ describe("database constraints", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("concurrency", () => {
+  it("assigns unique sequential version numbers under concurrent updates", async () => {
+    const assistant = await createAssistant("Test Bot", "Be helpful");
+
+    await Promise.all([
+      updateAssistant(assistant.id, { name: "One" }),
+      updateAssistant(assistant.id, { name: "Two" }),
+      updateAssistant(assistant.id, { name: "Three" }),
+      updateAssistant(assistant.id, { name: "Four" }),
+      updateAssistant(assistant.id, { name: "Five" }),
+    ]);
+
+    const result = await pool.query(
+      `SELECT version_number FROM assistant_versions
+       WHERE assistant_id = $1
+       ORDER BY version_number`,
+      [assistant.id],
+    );
+
+    expect(result.rows.map((row) => row.version_number)).toEqual([
+      1, 2, 3, 4, 5, 6,
+    ]);
+  });
+});
