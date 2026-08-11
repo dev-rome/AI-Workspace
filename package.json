@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
-    "dev": "node --env-file=.env --import=tsx src/server.ts"
+    "dev": "node --env-file=.env --import=tsx src/server.ts",
+    "migrate": "node --env-file=.env --import=tsx scripts/migrate.ts",
+    "migrate:test": "node --env-file=.env.test --import=tsx scripts/migrate.ts",
+    "db:reset:test": "node --env-file=.env.test --import=tsx scripts/reset-test-db.ts"
   },
   "keywords": [],
   "author": "",
