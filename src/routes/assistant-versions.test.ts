@@ -69,7 +69,10 @@ describe("POST /assistants/:id/versions/:versionId/restore", () => {
   });
 
   it("returns a distinct 404 when the assistant is missing", async () => {
-    vi.mocked(storage.getAssistantById).mockResolvedValue(null);
+    vi.mocked(storage.restoreAssistantVersion).mockResolvedValue({
+      ok: false,
+      reason: "assistant_not_found",
+    });
 
     const response = await app.inject({
       method: "POST",
@@ -81,12 +84,13 @@ describe("POST /assistants/:id/versions/:versionId/restore", () => {
       error: "Not Found",
       message: "Assistant not found",
     });
-    expect(storage.restoreAssistantVersion).not.toHaveBeenCalled();
   });
 
   it("returns a distinct 404 when the version is missing", async () => {
-    vi.mocked(storage.getAssistantById).mockResolvedValue(makeAssistant());
-    vi.mocked(storage.restoreAssistantVersion).mockResolvedValue(null);
+    vi.mocked(storage.restoreAssistantVersion).mockResolvedValue({
+      ok: false,
+      reason: "version_not_found",
+    });
 
     const response = await app.inject({
       method: "POST",
@@ -101,10 +105,10 @@ describe("POST /assistants/:id/versions/:versionId/restore", () => {
   });
 
   it("restores a version and returns the updated assistant", async () => {
-    vi.mocked(storage.getAssistantById).mockResolvedValue(makeAssistant());
-    vi.mocked(storage.restoreAssistantVersion).mockResolvedValue(
-      makeAssistant({ name: "Restored Name" }),
-    );
+    vi.mocked(storage.restoreAssistantVersion).mockResolvedValue({
+      ok: true,
+      assistant: makeAssistant({ name: "Restored Name" }),
+    });
 
     const response = await app.inject({
       method: "POST",

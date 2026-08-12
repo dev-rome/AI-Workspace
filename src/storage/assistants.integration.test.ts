@@ -185,20 +185,29 @@ describe("restoreAssistantVersion", () => {
     expect(required(stored.rows[0], "assistant row").name).toBe("Original");
   });
 
-  it("returns null when the version belongs to another assistant", async () => {
+  it("returns a failure reason when the version belongs to another assistant", async () => {
     const assistantA = await createAssistant("A", "A text");
     const assistantB = await createAssistant("B", "B text");
     const versionB = await firstVersionOf(assistantB.id);
+    const result = await restoreAssistantVersion(assistantA.id, versionB.id);
 
-    expect(
-      await restoreAssistantVersion(assistantA.id, versionB.id),
-    ).toBeNull();
+    expect(result).toEqual({ ok: false, reason: "version_not_found" });
   });
 
-  it("returns null when the version does not exist", async () => {
+  it("returns a failure reason when the assistant does not exist", async () => {
     const assistant = await createAssistant("Test Bot", "Be helpful");
+    const first = await firstVersionOf(assistant.id);
+    const result = await restoreAssistantVersion(MISSING_ID, first.id);
 
-    expect(await restoreAssistantVersion(assistant.id, MISSING_ID)).toBeNull();
+    expect(result).toEqual({ ok: false, reason: "assistant_not_found" });
+  });
+
+  it("returns a failure reason when the assistant does not exist", async () => {
+    const assistant = await createAssistant("Test Bot", "Be helpful");
+    const first = await firstVersionOf(assistant.id);
+    const result = await restoreAssistantVersion(MISSING_ID, first.id);
+
+    expect(result).toEqual({ ok: false, reason: "assistant_not_found" });
   });
 });
 

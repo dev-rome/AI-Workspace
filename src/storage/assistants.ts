@@ -4,6 +4,7 @@ import {
   type Assistant,
   type AssistantVersion,
   type AssistantUpdate,
+  type RestoreResult,
 } from "../types/assistant.js";
 import { firstRow, maybeRow } from "../query-helpers.js";
 
@@ -130,33 +131,33 @@ export async function deleteAssistant(id: string) {
 export async function restoreAssistantVersion(
   assistantId: string,
   versionId: string,
-) {
+): Promise<RestoreResult> {
   return withTransaction(async (client) => {
     const assistantResult = await client.query<Assistant>(
       "SELECT * FROM assistants WHERE id = $1 FOR UPDATE",
       [assistantId],
     );
-
-    if (!maybeRow(assistantResult.rows)) return null;
+    if (!maybeRow(assistantResult.rows)) {
+      return { ok: false, reason: "assistant_not_found" };
+    }
 
     const versionResult = await client.query<AssistantVersion>(
-      `SELECT *
-         FROM assistant_versions
-        WHERE id = $1
-          AND assistant_id = $2`,
+      `SELECT * FROM assistant_versions
+        WHERE id = $1 AND assistant_id = $2`,
       [versionId, assistantId],
     );
-
     const version = maybeRow(versionResult.rows);
+    if (!version) {
+      return { ok: false, reason: "version_not_found" };
+    }
 
-    if (!version) return null;
-
-    return applyNewVersion(
+    const assistant = await applyNewVersion(
       client,
       assistantId,
       version.name,
       version.instructions,
     );
+    return { ok: true, assistant };
   });
 }
 

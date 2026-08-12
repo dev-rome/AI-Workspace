@@ -160,17 +160,16 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     },
     async (request) => {
       const { id, versionId } = request.params;
-      const existing = await getAssistantById(id);
+      const result = await restoreAssistantVersion(id, versionId);
 
-      if (!existing) throw new NotFoundError("Assistant not found");
-
-      const restored = await restoreAssistantVersion(id, versionId);
-
-      if (!restored) {
-        throw new NotFoundError("Version not found for this assistant");
+      if (!result.ok) {
+        throw new NotFoundError(
+          result.reason === "assistant_not_found"
+            ? "Assistant not found"
+            : "Version not found for this assistant",
+        );
       }
-
-      return restored;
+      return result.assistant;
     },
   );
 

@@ -19,3 +19,7 @@ export type AssistantUpdate = {
   name?: string;
   instructions?: string;
 };
+
+export type RestoreResult =
+  | { ok: true; assistant: Assistant }
+  | { ok: false; reason: "assistant_not_found" | "version_not_found" };
