@@ -19,8 +19,8 @@ const uuidSchema = {
 };
 
 const assistantBodyProperties = {
-  name: { type: "string", minLength: 1 },
-  instructions: { type: "string", minLength: 1 },
+  name: { type: "string", minLength: 1, maxLength: 200 },
+  instructions: { type: "string", minLength: 1, maxLength: 10000 },
 };
 
 export default async function assistantRoutes(fastify: FastifyInstance) {

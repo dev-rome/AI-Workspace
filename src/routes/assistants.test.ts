@@ -178,6 +178,55 @@ describe("POST /assistants", () => {
       "Sell things",
     );
   });
+
+  it("rejects a whitespace-only name", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/assistants",
+      payload: { name: "   ", instructions: "Be helpful" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(storage.createAssistant).not.toHaveBeenCalled();
+  });
+
+  it("trims surrounding whitespace before storing", async () => {
+    vi.mocked(storage.createAssistant).mockResolvedValue(makeAssistant());
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/assistants",
+      payload: { name: "  Support Bot  ", instructions: "  Be helpful  " },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(storage.createAssistant).toHaveBeenCalledWith(
+      "Support Bot",
+      "Be helpful",
+    );
+  });
+
+  it("rejects a name longer than the maximum", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/assistants",
+      payload: { name: "a".repeat(201), instructions: "Be helpful" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(storage.createAssistant).not.toHaveBeenCalled();
+  });
+
+  it("rejects instructions longer than the maximum", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/assistants",
+      payload: { name: "Support Bot", instructions: "a".repeat(10001) },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(storage.createAssistant).not.toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /assistants/:id", () => {
@@ -248,6 +297,17 @@ describe("PATCH /assistants/:id", () => {
       error: "Not Found",
       message: "Assistant not found",
     });
+  });
+
+  it("rejects a whitespace-only name", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: `/assistants/${ASSISTANT_ID}`,
+      payload: { name: "   " },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(storage.updateAssistant).not.toHaveBeenCalled();
   });
 });
 

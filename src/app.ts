@@ -16,6 +16,19 @@ export function buildApp(options: { logger?: boolean } = {}) {
 
   app.get("/", () => ({ message: "AI Workspace API running" }));
   app.get("/health", () => ({ status: "ok" }));
+
+  app.addHook("preValidation", async (request) => {
+    const body = request.body;
+    if (body === null || typeof body !== "object" || Array.isArray(body))
+      return;
+
+    for (const [key, value] of Object.entries(body)) {
+      if (typeof value === "string") {
+        (body as Record<string, unknown>)[key] = value.trim();
+      }
+    }
+  });
+
   app.register(assistantRoutes);
 
   app.setErrorHandler(
