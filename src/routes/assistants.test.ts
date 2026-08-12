@@ -340,3 +340,33 @@ describe("DELETE /assistants/:id", () => {
     });
   });
 });
+
+describe("error handling", () => {
+  it("returns 503 when the database is unreachable", async () => {
+    const dbError = Object.assign(new Error("connect ECONNREFUSED"), {
+      code: "ECONNREFUSED",
+    });
+
+    vi.mocked(storage.getAssistants).mockRejectedValue(dbError);
+
+    const response = await app.inject({ method: "GET", url: "/assistants" });
+
+    expect(response.statusCode).toBe(503);
+  });
+
+  it("returns 409 on a unique constraint violation", async () => {
+    const dbError = Object.assign(new Error("duplicate key"), {
+      code: "23505",
+    });
+
+    vi.mocked(storage.createAssistant).mockRejectedValue(dbError);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/assistants",
+      payload: { name: "Bot", instructions: "Help" },
+    });
+
+    expect(response.statusCode).toBe(409);
+  });
+});
