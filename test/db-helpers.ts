@@ -28,9 +28,10 @@ export async function versionNumbers(assistantId: string) {
 }
 
 export async function firstVersionOf(assistantId: string) {
-  const versions = await getAssistantVersions(assistantId);
+  const result = await getAssistantVersions(assistantId);
+  if (!result.ok) throw new Error("Expected the assistant to exist");
   return required(
-    versions.find((version) => version.version_number === 1),
+    result.versions.find((version) => version.version_number === 1),
     "version 1",
   );
 }

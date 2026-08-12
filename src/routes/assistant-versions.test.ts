@@ -20,7 +20,10 @@ afterAll(async () => {
 
 describe("GET /assistants/:id/versions", () => {
   it("returns 404 when the assistant does not exist", async () => {
-    vi.mocked(storage.getAssistantById).mockResolvedValue(null);
+    vi.mocked(storage.getAssistantVersions).mockResolvedValue({
+      ok: false,
+      reason: "assistant_not_found",
+    });
 
     const response = await app.inject({
       method: "GET",
@@ -32,15 +35,16 @@ describe("GET /assistants/:id/versions", () => {
       error: "Not Found",
       message: "Assistant not found",
     });
-    expect(storage.getAssistantVersions).not.toHaveBeenCalled();
   });
 
   it("returns the version history", async () => {
-    vi.mocked(storage.getAssistantById).mockResolvedValue(makeAssistant());
-    vi.mocked(storage.getAssistantVersions).mockResolvedValue([
-      makeVersion({ id: VERSION_B_ID, version_number: 2 }),
-      makeVersion({ id: VERSION_A_ID, version_number: 1 }),
-    ]);
+    vi.mocked(storage.getAssistantVersions).mockResolvedValue({
+      ok: true,
+      versions: [
+        makeVersion({ id: VERSION_B_ID, version_number: 2 }),
+        makeVersion({ id: VERSION_A_ID, version_number: 1 }),
+      ],
+    });
 
     const response = await app.inject({
       method: "GET",

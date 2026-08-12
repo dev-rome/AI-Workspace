@@ -217,15 +217,19 @@ describe("getAssistantVersions", () => {
     await updateAssistant(assistant.id, { name: "Second" });
     await updateAssistant(assistant.id, { name: "Third" });
 
-    const versions = await getAssistantVersions(assistant.id);
+    const result = await getAssistantVersions(assistant.id);
 
-    expect(versions.map((version) => version.version_number)).toEqual([
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.versions.map((version) => version.version_number)).toEqual([
       3, 2, 1,
     ]);
   });
 
-  it("returns an empty array for an unknown assistant", async () => {
-    expect(await getAssistantVersions(MISSING_ID)).toEqual([]);
+  it("returns a failure reason for an unknown assistant", async () => {
+    const result = await getAssistantVersions(MISSING_ID);
+
+    expect(result).toEqual({ ok: false, reason: "assistant_not_found" });
   });
 });
 
@@ -234,13 +238,15 @@ describe("compareAssistantVersions", () => {
     const assistant = await createAssistant("Original", "Same text");
     await updateAssistant(assistant.id, { name: "Changed" });
 
-    const versions = await getAssistantVersions(assistant.id);
+    const versionsResult = await getAssistantVersions(assistant.id);
+    if (!versionsResult.ok) throw new Error("Expected the assistant to exist");
+
     const v1 = required(
-      versions.find((version) => version.version_number === 1),
+      versionsResult.versions.find((version) => version.version_number === 1),
       "version 1",
     );
     const v2 = required(
-      versions.find((version) => version.version_number === 2),
+      versionsResult.versions.find((version) => version.version_number === 2),
       "version 2",
     );
     const comparison = required(

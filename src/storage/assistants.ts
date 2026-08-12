@@ -5,6 +5,7 @@ import {
   type AssistantVersion,
   type AssistantUpdate,
   type RestoreResult,
+  type VersionsResult,
 } from "../types/assistant.js";
 import { firstRow, maybeRow } from "../query-helpers.js";
 
@@ -80,16 +81,24 @@ export async function getAssistantById(id: string) {
   return maybeRow(result.rows);
 }
 
-export async function getAssistantVersions(assistantId: string) {
+export async function getAssistantVersions(
+  assistantId: string,
+): Promise<VersionsResult> {
+  const assistant = await pool.query(
+    "SELECT id FROM assistants WHERE id = $1",
+    [assistantId],
+  );
+  if (!maybeRow(assistant.rows)) {
+    return { ok: false, reason: "assistant_not_found" };
+  }
+
   const result = await pool.query<AssistantVersion>(
-    `SELECT *
-       FROM assistant_versions
+    `SELECT * FROM assistant_versions
       WHERE assistant_id = $1
       ORDER BY version_number DESC`,
     [assistantId],
   );
-
-  return result.rows;
+  return { ok: true, versions: result.rows };
 }
 
 export async function createAssistant(name: string, instructions: string) {
