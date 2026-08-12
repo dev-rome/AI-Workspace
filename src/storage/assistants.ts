@@ -41,13 +41,13 @@ async function applyNewVersion(
 
   const insertResult = await client.query<AssistantVersion>(
     `INSERT INTO assistant_versions
-        (assistant_id, version_number, name, instructions)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *`,
+       (assistant_id, version_number, name, instructions)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
     [assistantId, nextVersion, name, instructions],
   );
-
   const newVersion = firstRow(insertResult.rows);
+
   const assistantResult = await client.query<Assistant>(
     `UPDATE assistants
         SET name = $1, instructions = $2, current_version_id = $3
@@ -55,7 +55,6 @@ async function applyNewVersion(
       RETURNING *`,
     [name, instructions, newVersion.id, assistantId],
   );
-
   return firstRow(assistantResult.rows);
 }
 
@@ -111,12 +110,10 @@ export async function updateAssistant(id: string, updates: AssistantUpdate) {
       [id],
     );
     const assistant = maybeRow(result.rows);
-
     if (!assistant) return null;
 
     const name = updates.name ?? assistant.name;
     const instructions = updates.instructions ?? assistant.instructions;
-
     return applyNewVersion(client, id, name, instructions);
   });
 }
