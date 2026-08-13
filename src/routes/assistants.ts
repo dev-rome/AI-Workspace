@@ -30,6 +30,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants",
     {
       schema: {
+        summary: "List assistants",
+        description:
+          "Returns assistants newest first. Use `limit` (1-100, default 50) and " +
+          "`offset` (default 0) to page through results.",
+        tags: ["Assistants"],
         querystring: {
           type: "object",
           properties: {
@@ -53,6 +58,9 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants/:id",
     {
       schema: {
+        summary: "Get an assistant",
+        description: "Returns a single assistant by id.",
+        tags: ["Assistants"],
         params: {
           type: "object",
           properties: { id: uuidSchema },
@@ -79,6 +87,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants/:id/versions",
     {
       schema: {
+        summary: "List version history",
+        description:
+          "Returns every version of an assistant, newest first. Versions are " +
+          "immutable snapshots: an assistant always has at least version 1.",
+        tags: ["Versions"],
         params: {
           type: "object",
           properties: { id: uuidSchema },
@@ -110,6 +123,13 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants/:assistantId/versions/:versionAId/compare/:versionBId",
     {
       schema: {
+        summary: "Compare two versions",
+        description:
+          "Returns both versions plus a `changes` object with an entry per " +
+          "field: `changed` indicates whether the value differs, and `from` " +
+          "and `to` hold the two values. Both versions must belong to the " +
+          "named assistant.",
+        tags: ["Versions"],
         params: {
           type: "object",
           properties: {
@@ -150,6 +170,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants",
     {
       schema: {
+        summary: "Create an assistant",
+        description:
+          "Creates an assistant and its first version. The new assistant's " +
+          "`current_version_id` points at version 1.",
+        tags: ["Assistants"],
         body: {
           type: "object",
           additionalProperties: false,
@@ -174,6 +199,14 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants/:id/versions/:versionId/restore",
     {
       schema: {
+        summary: "Restore a previous version",
+        description:
+          "Creates a new version containing the restored version's content and " +
+          "points the assistant at it. History is never rewritten: restoring " +
+          "version 1 while on version 2 produces version 3. Returns 404 if " +
+          "either the assistant or the version does not exist, with a message " +
+          "identifying which.",
+        tags: ["Versions"],
         params: {
           type: "object",
           properties: { id: uuidSchema, versionId: uuidSchema },
@@ -208,6 +241,12 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants/:id",
     {
       schema: {
+        summary: "Update an assistant",
+        description:
+          "Partial update: omitted fields keep their current values. Every " +
+          "update creates a new version snapshot rather than overwriting, and " +
+          "points `current_version_id` at it. At least one field is required.",
+        tags: ["Assistants"],
         params: {
           type: "object",
           properties: { id: uuidSchema },
@@ -240,6 +279,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
     "/assistants/:id",
     {
       schema: {
+        summary: "Delete an assistant",
+        description:
+          "Permanently deletes the assistant and its entire version history. " +
+          "This cannot be undone. Returns 204 with no body.",
+        tags: ["Assistants"],
         params: {
           type: "object",
           properties: { id: uuidSchema },

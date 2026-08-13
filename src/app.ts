@@ -55,7 +55,13 @@ export async function buildApp(options: { logger?: boolean } = {}) {
     openapi: {
       info: {
         title: "AI Workspace API",
-        description: "Versioned AI assistants with immutable history",
+        description:
+          "Versioned AI assistants with immutable history. Every update " +
+          "creates a new version snapshot; restoring an old version creates " +
+          "a new version rather than rewriting history.\n\n" +
+          "Errors return `{ error, message }`. 400 for validation failures, " +
+          "404 for missing resources, 409 for conflicts, 503 when the " +
+          "database is unavailable.",
         version: "1.0.0",
       },
     },
