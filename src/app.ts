@@ -8,6 +8,8 @@ import {
   errorSchema,
 } from "./schemas/assistant.js";
 import assistantRoutes from "./routes/assistants.js";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 
 const CONNECTION_ERROR_CODES = new Set([
   "ECONNREFUSED",
@@ -18,7 +20,7 @@ const CONNECTION_ERROR_CODES = new Set([
   "57P03",
 ]);
 
-export function buildApp(options: { logger?: boolean } = {}) {
+export async function buildApp(options: { logger?: boolean } = {}) {
   const app = Fastify({
     logger: options.logger ?? true,
     ajv: {
@@ -48,6 +50,18 @@ export function buildApp(options: { logger?: boolean } = {}) {
   app.addSchema(assistantVersionSchema);
   app.addSchema(comparisonSchema);
   app.addSchema(errorSchema);
+
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: "AI Workspace API",
+        description: "Versioned AI assistants with immutable history",
+        version: "1.0.0",
+      },
+    },
+  });
+
+  await app.register(swaggerUi, { routePrefix: "/docs" });
 
   app.register(assistantRoutes);
 

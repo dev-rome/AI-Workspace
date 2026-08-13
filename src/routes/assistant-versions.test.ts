@@ -12,7 +12,7 @@ vi.mock("../storage/assistants.js");
 
 import * as storage from "../storage/assistants.js";
 
-const app = buildApp({ logger: false });
+const app = await buildApp({ logger: false });
 
 afterAll(async () => {
   await app.close();
