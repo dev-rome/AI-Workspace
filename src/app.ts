@@ -1,7 +1,13 @@
 import Fastify from "fastify";
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
-import assistantRoutes from "./routes/assistants.js";
 import { HttpError } from "./errors.js";
+import {
+  assistantSchema,
+  assistantVersionSchema,
+  comparisonSchema,
+  errorSchema,
+} from "./schemas/assistant.js";
+import assistantRoutes from "./routes/assistants.js";
 
 const CONNECTION_ERROR_CODES = new Set([
   "ECONNREFUSED",
@@ -37,6 +43,11 @@ export function buildApp(options: { logger?: boolean } = {}) {
       }
     }
   });
+
+  app.addSchema(assistantSchema);
+  app.addSchema(assistantVersionSchema);
+  app.addSchema(comparisonSchema);
+  app.addSchema(errorSchema);
 
   app.register(assistantRoutes);
 

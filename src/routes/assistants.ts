@@ -37,6 +37,10 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
             offset: { type: "integer", minimum: 0, default: 0 },
           },
         },
+        response: {
+          200: { type: "array", items: { $ref: "assistant#" } },
+          400: { $ref: "error#" },
+        },
       },
     },
     async (request) => {
@@ -53,6 +57,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: { id: uuidSchema },
           required: ["id"],
+        },
+        response: {
+          200: { $ref: "assistant#" },
+          400: { $ref: "error#" },
+          404: { $ref: "error#" },
         },
       },
     },
@@ -74,6 +83,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: { id: uuidSchema },
           required: ["id"],
+        },
+        response: {
+          200: { type: "array", items: { $ref: "assistantVersion#" } },
+          400: { $ref: "error#" },
+          404: { $ref: "error#" },
         },
       },
     },
@@ -104,6 +118,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
             versionBId: uuidSchema,
           },
           required: ["assistantId", "versionAId", "versionBId"],
+        },
+        response: {
+          200: { $ref: "comparison#" },
+          400: { $ref: "error#" },
+          404: { $ref: "error#" },
         },
       },
     },
@@ -137,6 +156,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
           properties: assistantBodyProperties,
           required: ["name", "instructions"],
         },
+        response: {
+          201: { $ref: "assistant#" },
+          400: { $ref: "error#" },
+          409: { $ref: "error#" },
+        },
       },
     },
     async (request, reply) => {
@@ -154,6 +178,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: { id: uuidSchema, versionId: uuidSchema },
           required: ["id", "versionId"],
+        },
+        response: {
+          200: { $ref: "assistant#" },
+          400: { $ref: "error#" },
+          404: { $ref: "error#" },
         },
       },
     },
@@ -190,6 +219,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
           additionalProperties: false,
           properties: assistantBodyProperties,
         },
+        response: {
+          200: { $ref: "assistant#" },
+          400: { $ref: "error#" },
+          404: { $ref: "error#" },
+        },
       },
     },
     async (request) => {
@@ -210,6 +244,11 @@ export default async function assistantRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: { id: uuidSchema },
           required: ["id"],
+        },
+        response: {
+          204: { type: "null" },
+          400: { $ref: "error#" },
+          404: { $ref: "error#" },
         },
       },
     },
